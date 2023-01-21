@@ -1,0 +1,16 @@
+[
+  { "id":  1, "name": "Alice",   "fruit": "apple",   "done": true,  "timestamp": 1580983928, "color": "green" },
+  { "id":  2, "name": "Bob",     "fruit": null,      "done": false, "timestamp": 795232227,  "color": "green" },
+  { "id":  3, "name": "Charles", "fruit": "melon",   "done": false, "timestamp": 1397964365, "color": "red"   },
+  { "id":  4, "name": "Daniel",  "fruit": "banana",  "done": true,  "timestamp": 1321024023, "color": "blue"  },
+  { "id":  5, "name": "Emily",   "fruit": "orange",  "done": true,  "timestamp": 517860443,  "color": "red"   },
+  { "id":  6, "name": "Felix",   "fruit": "lemon",   "done": true,  "timestamp": 621055241,  "color": "blue"  },
+  { "id":  7, "name": "George",  "fruit": "cherry",  "done": false, "timestamp": 817052282,  "color": "green" },
+  { "id":  8, "name": "Hans",    "fruit": "coconut", "done": true,  "timestamp": 515770394,  "color": "green" },
+  { "id":  9, "name": "Ivan",    "fruit": null,      "done": true,  "timestamp": 83799776,   "color": "blue"  },
+  { "id": 10, "name": "Julia",   "fruit": "pear",    "done": true,  "timestamp": 1425824109, "color": "blue"  },
+  { "id": 11, "name": "Kathrin", "fruit": "kiwi",    "done": false, "timestamp": 1567212228, "color": "red"   },
+  { "id": 12, "name": "Mike",    "fruit": "grape",   "done": true,  "timestamp": 625533209,  "color": "red"   },
+  { "id": 13, "name": "Nick",    "fruit": "plum",    "done": true,  "timestamp": 88057233,   "color": "red"   },
+  { "id": 14, "name": "Oscar",   "fruit": null,      "done": false, "timestamp": 962874157,  "color": "green" }
+]
