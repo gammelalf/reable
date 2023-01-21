@@ -9,12 +9,12 @@ function ensureArray<T>(array: ArrayOrElem<T>): Array<T> {
     return array instanceof Array ? array : [array];
 }
 
+export type SortBy = [idx: number, rev: boolean];
 export type TableProps = {
     children: ArrayOrElem<ColumnElement>;
 };
 export type TableState = {
-    sortRev: boolean;
-    sortBy: number | null;
+    sortBy: Array<SortBy>;
 };
 
 export default class Table extends React.Component<TableProps, TableState> {
@@ -22,13 +22,12 @@ export default class Table extends React.Component<TableProps, TableState> {
         super(props);
 
         this.state = {
-            sortRev: false,
-            sortBy: null,
+            sortBy: [],
         };
     }
 
     render() {
-        const columns = ensureArray(this.props.children).map((column) => {
+        const columns = ensureArray(this.props.children).map((column, i) => {
             const [head, cells] = column.props.children;
             return {
                 head,
@@ -41,22 +40,20 @@ export default class Table extends React.Component<TableProps, TableState> {
 
         const numRows = Math.max(...columns.map(({ cells }) => cells.length));
         let rowOrder = Array.from({ length: numRows }, (_, i) => i);
-        if (this.state.sortBy !== null) {
-            const { sortable, sortFn } = columns[this.state.sortBy];
-            if (sortable) {
-                rowOrder = columns[this.state.sortBy].cells
-                    .map((cell, i) => [cell.props.sortKey, i])
-                    .sort(([a, _a], [b, _b]) => sortFn(a, b))
-                    .map(([_, index]) => index);
-                while (rowOrder.length < numRows) {
-                    rowOrder.push(rowOrder.length);
+        if (this.state.sortBy.length > 0) {
+            rowOrder = rowOrder.sort((idxA, idxB) => {
+                for (const [columnIdx, reverse] of this.state.sortBy) {
+                    const { sortFn, cells } = columns[columnIdx];
+                    const keyA = cells[idxA].props.sortKey;
+                    const keyB = cells[idxB].props.sortKey;
+                    const cmp = sortFn(keyA, keyB);
+                    if (cmp !== 0) {
+                        if (reverse) return -cmp;
+                        else return cmp;
+                    }
                 }
-                if (this.state.sortRev) rowOrder = rowOrder.reverse();
-            } else {
-                console.error(
-                    `Invalid \`state.sortBy\`: column ${this.state.sortBy} isn't sortable`
-                );
-            }
+                return 0;
+            });
         }
 
         return (
