@@ -1,5 +1,7 @@
 import React from "react";
 
+const CELL_SYMBOL = Symbol();
+
 function compareNumbers(a: number, b: number): number {
     return a - b;
 }
@@ -9,15 +11,13 @@ function ensureArray<T>(array: ArrayOrElem<T>): Array<T> {
     return array instanceof Array ? array : [array];
 }
 
-export type SortBy = [idx: number, rev: boolean];
 export type TableProps = {
-    children: ArrayOrElem<ColumnElement>;
+    children: [HeadElement, BodyElement];
 };
 export type TableState = {
-    sortBy: Array<SortBy>;
+    sortBy: Array<[key: React.Key, rev: boolean]>;
 };
-
-export default class Table extends React.Component<TableProps, TableState> {
+export class Table extends React.Component<TableProps, TableState> {
     constructor(props: TableProps) {
         super(props);
 
@@ -27,92 +27,117 @@ export default class Table extends React.Component<TableProps, TableState> {
     }
 
     render() {
-        const columns = ensureArray(this.props.children).map((column, i) => {
-            const [head, cells] = column.props.children;
-            return {
-                head,
-                cells: ensureArray(cells),
-                key: column.key,
-                sortable: column.props.sortable || false,
-                sortFn: column.props.sortFn || compareNumbers,
-            };
-        });
+        let {
+            children: [head, body],
+            ...passThrough
+        } = this.props;
 
-        const numRows = Math.max(...columns.map(({ cells }) => cells.length));
-        let rowOrder = Array.from({ length: numRows }, (_, i) => i);
+        // Preprocess columns
+        const columns: { [key: React.Key]: { sortFn: (a: any, b: any) => number } } = {};
+        const headRow: RowElement = head.props.children;
+        for (const {
+            key,
+            props: { sortFn },
+        } of ensureArray<CellElement>(headRow.props.children)) {
+            if (key) {
+                columns[key] = { sortFn: sortFn || compareNumbers };
+            }
+        }
+        console.debug(columns);
+
+        // Preprocess rows
+        let rows = ensureArray<RowElement>(body.props.children).map((row) => {
+            const values: {
+                [key: React.Key]: {
+                    sortKey?: any;
+                    groupKey?: any;
+                    parentKey?: React.Key;
+                };
+                [CELL_SYMBOL]: RowElement;
+            } = { [CELL_SYMBOL]: row };
+            for (const {
+                key,
+                props: { sortKey, groupKey, parentKey },
+            } of ensureArray<CellElement>(row.props.children)) {
+                // Has the cell a key and has a column been found with it?
+                if (key && key in columns) {
+                    // Then add the cell's properties
+                    values[key] = { sortKey, groupKey, parentKey };
+                }
+            }
+            return values;
+        });
+        console.debug(rows);
+
+        // Sort rows
         if (this.state.sortBy.length > 0) {
-            rowOrder = rowOrder.sort((idxA, idxB) => {
-                for (const [columnIdx, reverse] of this.state.sortBy) {
-                    const { sortFn, cells } = columns[columnIdx];
-                    const keyA = cells[idxA].props.sortKey;
-                    const keyB = cells[idxB].props.sortKey;
-                    const cmp = sortFn(keyA, keyB);
-                    if (cmp !== 0) {
-                        if (reverse) return -cmp;
-                        else return cmp;
+            rows = rows.sort((rowA, rowB) => {
+                for (const [column, reverse] of this.state.sortBy) {
+                    const valueA = rowA[column]?.sortKey;
+                    const valueB = rowB[column]?.sortKey;
+
+                    // If both rows have value, sort them
+                    if (valueA !== undefined && valueB !== undefined) {
+                        const { sortFn } = columns[column];
+                        const cmp = sortFn(valueA, valueB);
+                        if (cmp !== 0) {
+                            if (reverse) return -cmp;
+                            else return cmp;
+                        }
                     }
+                    // If neither row has a value, treat them as equal
+                    else if (valueA === undefined && valueB === undefined) return 0;
+                    // If one has and the other hasn't a value, put the row with a value first
+                    else return (valueA !== undefined ? 1 : -1) * (reverse ? -1 : 1);
                 }
                 return 0;
             });
         }
 
-        return (
-            <table>
-                <thead key="thead">
-                    <tr>
-                        {columns.map(({ key, head }) => (
-                            <React.Fragment key={key}>{head}</React.Fragment>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody key="tbody">
-                    {rowOrder.map((i) => (
-                        <tr key={i}>
-                            {columns.map(({ key, cells }) => (
-                                <React.Fragment key={key}>
-                                    {cells[i] || null}
-                                </React.Fragment>
-                            ))}
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        );
+        body = { ...body };
+        body.props = { ...body.props };
+        body.props.children = rows.map((row) => row[CELL_SYMBOL]);
+
+        return <table {...passThrough}>{[head, body]}</table>;
     }
 }
 
-/**
- * A JSX `<Head/>` element
- */
-type ColumnElement = React.ReactElement<ColumnProps, typeof Column>;
-type ColumnProps = {
-    sortable?: boolean;
-    sortFn?: (a: any, b: any) => number;
-    children: [HeadElement, ArrayOrElem<CellElement>];
-};
-export function Column(_: ColumnProps) {
-    return null;
-}
-
-/**
- * A JSX `<Head/>` element
- */
-type HeadElement = React.ReactElement<HeadProps, typeof Head>;
-type HeadProps = {
-    children: React.ReactNode;
-};
+export type HeadElement = React.ReactElement<HeadProps, typeof Head>;
+export type HeadProps = {
+    children: RowElement;
+} & React.HTMLProps<HTMLTableSectionElement>;
 export function Head(props: HeadProps) {
-    return <th>{props.children || null}</th>;
+    const { children, ...passThrough } = props;
+    return <thead {...passThrough}>{children}</thead>;
 }
 
-/**
- * A JSX `<Cell/>` element
- */
-type CellElement = React.ReactElement<CellProps, typeof Cell>;
-type CellProps = {
-    children: React.ReactNode;
+export type BodyElement = React.ReactElement<BodyProps, typeof Body>;
+export type BodyProps = {
+    children: ArrayOrElem<RowElement>;
+} & React.HTMLProps<HTMLTableSectionElement>;
+export function Body(props: BodyProps) {
+    const { children, ...passThrough } = props;
+    return <tbody {...passThrough}>{children}</tbody>;
+}
+
+export type RowElement = React.ReactElement<RowProps, typeof Row>;
+export type RowProps = {
+    children: ArrayOrElem<CellElement>;
+} & React.HTMLProps<HTMLTableRowElement>;
+export function Row(props: RowProps) {
+    const { children, ...passThrough } = props;
+    return <tr {...passThrough}>{children}</tr>;
+}
+
+export type CellElement = React.ReactElement<CellProps, typeof Cell>;
+export type CellProps = {
     sortKey?: any;
-};
+    groupKey?: any;
+    parentKey?: React.Key;
+
+    sortFn?: (a: any, b: any) => number;
+} & React.HTMLProps<HTMLTableCellElement>;
 export function Cell(props: CellProps) {
-    return <td>{props.children || null}</td>;
+    const { children, sortKey, groupKey, parentKey, ...passThrough } = props;
+    return <td {...passThrough}>{children}</td>;
 }
