@@ -88,7 +88,7 @@ export class Table extends React.Component<TableProps, TableState> {
                     // If neither row has a value, treat them as equal
                     else if (valueA === undefined && valueB === undefined) return 0;
                     // If one has and the other hasn't a value, put the row with a value first
-                    else return (valueA !== undefined ? 1 : -1) * (reverse ? -1 : 1);
+                    else return (valueA !== undefined ? -1 : 1) * (reverse ? -1 : 1);
                 }
                 return 0;
             });

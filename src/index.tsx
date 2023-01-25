@@ -13,7 +13,12 @@ class Main extends React.Component<{}, MainState> {
                 <Head>
                     <Row>
                         <Cell key="name">Name</Cell>
-                        <Cell key="fruit">Fruit</Cell>
+                        <Cell
+                            key="fruit"
+                            sortFn={(a: string, b: string) => a.localeCompare(b)}
+                        >
+                            Fruit
+                        </Cell>
                         <Cell key="done">Done</Cell>
                         <Cell key="time">Date</Cell>
                         <Cell key="color">Color</Cell>
@@ -25,7 +30,10 @@ class Main extends React.Component<{}, MainState> {
                             <Cell key="name" sortKey={id}>
                                 {name}
                             </Cell>
-                            <Cell key="fruit" sortKey={fruit || ""}>
+                            <Cell
+                                key="fruit"
+                                sortKey={fruit === null ? undefined : fruit}
+                            >
                                 {fruit || ""}
                             </Cell>
                             <Cell key="done" sortKey={done ? 1 : 0}>
