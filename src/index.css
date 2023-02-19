@@ -10,3 +10,10 @@ body {
   display: flex;
   flex-direction: column;
 }
+
+.caret {
+  position: relative;
+  width: 1em;
+  height: 1em;
+  filter: invert();
+}

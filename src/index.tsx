@@ -1,8 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
-import { Table, Body, Cell, Head, Row } from "./table";
+import { Table, Body, Cell, Row } from "./table";
 import data from "./data.json";
+import Column from "./table/column";
 
 type MainState = {};
 
@@ -10,21 +11,31 @@ class Main extends React.Component<{}, MainState> {
     render() {
         return (
             <Table>
-                <Head>
-                    <Row>
-                        <Cell key="name">Name</Cell>
-                        <Cell
+                <thead key="head">
+                    <tr>
+                        <Column key="name" name="name" sortable>
+                            Name
+                        </Column>
+                        <Column
                             key="fruit"
+                            name="fruit"
+                            sortable
                             sortFn={(a: string, b: string) => a.localeCompare(b)}
                         >
                             Fruit
-                        </Cell>
-                        <Cell key="done">Done</Cell>
-                        <Cell key="time">Date</Cell>
-                        <Cell key="color">Color</Cell>
-                    </Row>
-                </Head>
-                <Body>
+                        </Column>
+                        <Column key="done" name="done" sortable>
+                            Done
+                        </Column>
+                        <Column key="time" name="time" sortable>
+                            Date
+                        </Column>
+                        <Column key="color" name="color" sortable>
+                            Color
+                        </Column>
+                    </tr>
+                </thead>
+                <Body key="body">
                     {data.map(({ id, name, fruit, done, timestamp, color }) => (
                         <Row key={id}>
                             <Cell key="name" sortKey={id}>
@@ -68,8 +79,4 @@ class Main extends React.Component<{}, MainState> {
 }
 
 const root = ReactDOM.createRoot(document.getElementById("root") as HTMLElement);
-root.render(
-    <React.StrictMode>
-        <Main />
-    </React.StrictMode>
-);
+root.render(<Main />);
