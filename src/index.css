@@ -17,3 +17,10 @@ body {
   height: 1em;
   filter: invert();
 }
+
+tr {
+  --indent: 0;
+}
+tr > td:first-child > div {
+  margin-left: calc(var(--indent) * 1em);
+}

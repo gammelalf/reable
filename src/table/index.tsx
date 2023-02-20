@@ -3,6 +3,7 @@ import { ensureArray, compareNumbers } from "./utils";
 import { ArrayOrElem } from "./utils";
 import TableContext, { Column } from "./context";
 
+const CHILDREN_SYMBOL = Symbol();
 const CELL_SYMBOL = Symbol();
 
 export type TableProps = {
@@ -10,6 +11,8 @@ export type TableProps = {
 };
 export type TableState = {
     sortBy: Array<[key: React.Key, rev: boolean]>;
+    parentBy: React.Key | null;
+    parentOpen: { [key: React.Key]: boolean };
 };
 
 export class Table extends React.Component<TableProps, TableState> {
@@ -20,6 +23,8 @@ export class Table extends React.Component<TableProps, TableState> {
 
         this.state = {
             sortBy: [],
+            parentBy: null,
+            parentOpen: {},
         };
     }
 
@@ -37,11 +42,8 @@ export class Table extends React.Component<TableProps, TableState> {
                     break;
                 case "first":
                 case "last":
-                    console.warn(key);
                     this.setState(({ sortBy }) => {
-                        console.warn(sortBy);
                         sortBy = sortBy.filter(([k, _]) => key !== k);
-                        console.warn(sortBy);
                         if (pos === "first") {
                             sortBy = [[key, rev], ...sortBy];
                         } else {
@@ -70,28 +72,32 @@ export class Table extends React.Component<TableProps, TableState> {
         } = this.props;
 
         // Preprocess rows
+        type DataRow = {
+            /** Data stored in each column */
+            [key: React.Key]: {
+                sortKey?: any;
+                groupKey?: any;
+                parentKey?: React.Key;
+            };
+            /** List of hierarchical children*/
+            [CHILDREN_SYMBOL]: Array<DataRow>;
+            /** The original react element */
+            [CELL_SYMBOL]: RowElement;
+        };
         let rows = ensureArray<RowElement>(body.props.children).map((row) => {
-            const values: {
-                [key: React.Key]: {
-                    sortKey?: any;
-                    groupKey?: any;
-                    parentKey?: React.Key;
-                };
-                [CELL_SYMBOL]: RowElement;
-            } = { [CELL_SYMBOL]: row };
+            const data: DataRow = { [CELL_SYMBOL]: row, [CHILDREN_SYMBOL]: [] };
             for (const {
                 key,
                 props: { sortKey, groupKey, parentKey },
             } of ensureArray<CellElement>(row.props.children)) {
                 // Has the cell a key and has a column been found with it?
-                if (key && key in this.columns) {
+                if (key !== null && key in this.columns) {
                     // Then add the cell's properties
-                    values[key] = { sortKey, groupKey, parentKey };
+                    data[key] = { sortKey, groupKey, parentKey };
                 }
             }
-            return values;
+            return data;
         });
-        console.debug(rows);
 
         // Sort rows
         if (this.state.sortBy.length > 0) {
@@ -116,6 +122,36 @@ export class Table extends React.Component<TableProps, TableState> {
                 }
                 return 0;
             });
+        }
+
+        // Build a parent tree
+        if (this.state.parentBy !== null) {
+            const column = this.state.parentBy;
+            const lookup = Object.fromEntries(
+                rows.map((row) => [row[CELL_SYMBOL].key, row])
+            );
+            const topRows = rows.filter((row) => {
+                const parentKey = row[column]?.parentKey;
+                if (parentKey !== undefined) {
+                    const parent = lookup[parentKey];
+                    if (parent !== undefined) {
+                        parent[CHILDREN_SYMBOL].push(row);
+                        return false;
+                    }
+                }
+                return true;
+            });
+
+            rows = [];
+            const pushRow = (row: DataRow, indent: number) => {
+                // @ts-ignore
+                row[CELL_SYMBOL] = React.cloneElement(row[CELL_SYMBOL], { indent });
+                const key = row[CELL_SYMBOL].key;
+                rows.push(row);
+                if (key !== null && this.state.parentOpen[key])
+                    for (const child of row[CHILDREN_SYMBOL]) pushRow(child, indent + 1);
+            };
+            for (const row of topRows) pushRow(row, 0);
         }
 
         return (
@@ -179,19 +215,37 @@ export function Body(props: BodyProps) {
 export type RowElement = React.ReactElement<RowProps, typeof Row>;
 export type RowProps = {
     children: ArrayOrElem<CellElement>;
+    indent?: number;
 } & React.HTMLProps<HTMLTableRowElement>;
 export function Row(props: RowProps) {
-    const { children, ...passThrough } = props;
+    const { children, indent, ...passThrough } = props;
+    if (indent !== undefined) {
+        if (!("style" in passThrough)) passThrough.style = {};
+        // @ts-ignore
+        passThrough.style["--indent"] = indent;
+    }
     return <tr {...passThrough}>{children}</tr>;
 }
 
 export type CellElement = React.ReactElement<CellProps, typeof Cell>;
 export type CellProps = {
+    /** Value the column's sort function operates on */
     sortKey?: any;
+
+    /** WIP */
     groupKey?: any;
-    parentKey?: React.Key;
+
+    /**
+     * Another row's key, this cell's value "points" to.
+     * (Think of it as a foreign key in a database)
+     */
+    parentKey?: React.Key | undefined;
 } & React.HTMLProps<HTMLTableCellElement>;
 export function Cell(props: CellProps) {
     const { children, sortKey, groupKey, parentKey, ...passThrough } = props;
-    return <td {...passThrough}>{children}</td>;
+    return (
+        <td {...passThrough}>
+            <div>{children}</div>
+        </td>
+    );
 }
