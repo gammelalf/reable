@@ -1,0 +1,11 @@
+[
+  {"name": "Code",       "isDir": true, "parent": null    },
+  {"name": "Rust",       "isDir": true, "parent": "Code"  },
+  {"name": "rustymon",   "isDir": true, "parent": "Rust"  },
+  {"name": "Javascript", "isDir": true, "parent": "Code"  },
+  {"name": "Python",     "isDir": true, "parent": "Code"  },
+  {"name": "Music",      "isDir": true, "parent": null    },
+  {"name": "Metal",      "isDir": true, "parent": "Music" },
+  {"name": "Non-Metal",  "isDir": true, "parent": "Music" },
+  {"name": "Downloads",  "isDir": true, "parent": null    }
+]
