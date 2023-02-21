@@ -88,13 +88,12 @@ export class Table extends React.Component<TableProps, TableState> {
         let rows = ensureArray<RowElement>(body.props.children).map((row) => {
             const data: DataRow = { [CELL_SYMBOL]: row, [CHILDREN_SYMBOL]: [] };
             for (const {
-                key,
-                props: { sortKey, groupKey, parentKey },
+                props: { column, sortKey, groupKey, parentKey },
             } of ensureArray<CellElement>(row.props.children)) {
-                // Has the cell a key and has a column been found with it?
-                if (key !== null && key in this.columns) {
+                // Has this column been registered?
+                if (column in this.columns) {
                     // Then add the cell's properties
-                    data[key] = { sortKey, groupKey, parentKey };
+                    data[column] = { sortKey, groupKey, parentKey };
                 }
             }
             return data;
@@ -256,6 +255,9 @@ export function Row(props: RowProps) {
 
 export type CellElement = React.ReactElement<CellProps>;
 export type CellProps = {
+    /** The column's name for which this cell contains data */
+    column: React.Key;
+
     /** Value the column's sort function operates on */
     sortKey?: any;
 

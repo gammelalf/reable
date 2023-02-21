@@ -34,12 +34,12 @@ export default function HierarchicalTable() {
                     {data.map(({ name, isDir, parent }) => (
                         <Row key={name}>
                             <Cell
-                                key="name"
+                                column="name"
                                 parentKey={parent === null ? undefined : parent}
                             >
                                 {name}
                             </Cell>
-                            <Cell key="type">{isDir ? "Directory" : "File"}</Cell>
+                            <Cell column="type">{isDir ? "Directory" : "File"}</Cell>
                         </Row>
                     ))}
                 </Body>

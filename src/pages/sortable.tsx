@@ -8,24 +8,23 @@ export default function SortableTable() {
         <Table>
             <thead key="head">
                 <tr>
-                    <Column key="name" name="name" sortable>
+                    <Column name="name" sortable>
                         Name
                     </Column>
                     <Column
-                        key="fruit"
                         name="fruit"
                         sortable
                         sortFn={(a: string, b: string) => a.localeCompare(b)}
                     >
                         Fruit
                     </Column>
-                    <Column key="done" name="done" sortable>
+                    <Column name="done" sortable>
                         Done
                     </Column>
-                    <Column key="time" name="time" sortable>
+                    <Column name="time" sortable>
                         Date
                     </Column>
-                    <Column key="color" name="color" sortable>
+                    <Column name="color" sortable>
                         Color
                     </Column>
                 </tr>
@@ -33,16 +32,16 @@ export default function SortableTable() {
             <Body key="body">
                 {data.map(({ id, name, fruit, done, timestamp, color }) => (
                     <Row key={id}>
-                        <Cell key="name" sortKey={id}>
+                        <Cell column="name" sortKey={id}>
                             {name}
                         </Cell>
-                        <Cell key="fruit" sortKey={fruit === null ? undefined : fruit}>
+                        <Cell column="fruit" sortKey={fruit === null ? undefined : fruit}>
                             {fruit || ""}
                         </Cell>
-                        <Cell key="done" sortKey={done ? 1 : 0}>
+                        <Cell column="done" sortKey={done ? 1 : 0}>
                             <input type="checkbox" disabled checked={done} />
                         </Cell>
-                        <Cell key="time" sortKey={timestamp}>
+                        <Cell column="time" sortKey={timestamp}>
                             {new Date(timestamp * 1000).toLocaleDateString("en-US", {
                                 year: "numeric",
                                 month: "2-digit",
@@ -50,7 +49,7 @@ export default function SortableTable() {
                             })}
                         </Cell>
                         <Cell
-                            key="color"
+                            column="color"
                             sortKey={color === "red" ? 0 : color === "green" ? 1 : 2}
                         >
                             <div
