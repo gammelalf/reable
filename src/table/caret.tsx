@@ -11,8 +11,7 @@ const DEFAULT_SRC: string = (function () {
 
 type CaretProps = {
     orientation?: "up" | "down" | "left" | "right";
-    src?: string;
-};
+} & React.HTMLProps<HTMLImageElement>;
 
 const ROTATIONS = {
     up: 0,
@@ -25,14 +24,13 @@ const ROTATIONS = {
  * A simple `<img />` showing a rotatable caret
  */
 export default function Caret(props: CaretProps) {
-    const orientation = props.orientation || "down";
-    const src = props.src || DEFAULT_SRC;
-    return (
-        <img
-            className="caret"
-            src={src}
-            alt={`A caret pointing ${orientation}`}
-            style={{ transform: `rotate(${ROTATIONS[orientation]}deg)` }}
-        />
-    );
+    let { orientation, src, alt, style, ...passThrough } = props;
+
+    orientation = orientation || "down";
+    src = src || DEFAULT_SRC;
+    alt = alt || `A caret pointing ${orientation}`;
+    if (style === undefined) style = {};
+    style.transform = `rotate(${ROTATIONS[orientation]}deg)`;
+
+    return <img className="caret" src={src} alt={alt} style={style} {...passThrough} />;
 }

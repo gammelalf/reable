@@ -2,6 +2,7 @@ import React from "react";
 import { ensureArray, compareNumbers } from "./utils";
 import { ArrayOrElem } from "./utils";
 import TableContext, { Column } from "./context";
+import Caret from "./caret";
 
 const CHILDREN_SYMBOL = Symbol();
 const CELL_SYMBOL = Symbol();
@@ -144,53 +145,69 @@ export class Table extends React.Component<TableProps, TableState> {
 
             rows = [];
             const pushRow = (row: DataRow, indent: number) => {
-                // @ts-ignore
-                row[CELL_SYMBOL] = React.cloneElement(row[CELL_SYMBOL], { indent });
                 const key = row[CELL_SYMBOL].key;
+
+                row[CELL_SYMBOL] = React.cloneElement(row[CELL_SYMBOL], {
+                    indent,
+                    open: key === null ? undefined : Boolean(this.state.parentOpen[key]),
+                    setOpen:
+                        key === null
+                            ? undefined
+                            : (open: boolean) => {
+                                  this.setState(
+                                      ({ parentOpen: { [key]: _, ...parentOpen } }) => ({
+                                          parentOpen: { [key]: open, ...parentOpen },
+                                      })
+                                  );
+                              },
+                });
                 rows.push(row);
+
                 if (key !== null && this.state.parentOpen[key])
                     for (const child of row[CHILDREN_SYMBOL]) pushRow(child, indent + 1);
             };
             for (const row of topRows) pushRow(row, 0);
         }
 
+        const contextCache: { [key: React.Key]: Column.State } = {};
+        const context = {
+            setColumn: (key: React.Key, properties: Column.Props) => {
+                this.columns[key] = {};
+                if (properties.sortable) {
+                    this.columns[key].sortFn = properties.sortFn || compareNumbers;
+                }
+                delete contextCache[key];
+            },
+            getColumn: (key: React.Key) => {
+                if (key in contextCache) return contextCache[key];
+
+                const column = this.columns[key];
+                if (!column) return {};
+
+                let sortableState: Column.SortableState | undefined = undefined;
+                if ("sortFn" in column) {
+                    const index = this.state.sortBy.findIndex(([k, _]) => k === key);
+                    sortableState = {
+                        setSortBy: this.generateSetSortBy(key),
+                        sorted:
+                            index === -1
+                                ? null
+                                : {
+                                      reversed: this.state.sortBy[index][1],
+                                      index,
+                                  },
+                    };
+                }
+
+                const state = { ...sortableState };
+                contextCache[key] = state;
+                return state;
+            },
+        };
+
         return (
             <table {...passThrough}>
-                <TableContext.Provider
-                    value={{
-                        setColumn: (key, properties) => {
-                            this.columns[key] = {};
-                            if (properties.sortable) {
-                                this.columns[key].sortFn =
-                                    properties.sortFn || compareNumbers;
-                            }
-                        },
-                        getColumn: (key) => {
-                            const column = this.columns[key];
-                            if (!column) return {};
-
-                            let sortableState: Column.SortableState | undefined =
-                                undefined;
-                            if ("sortFn" in column) {
-                                const index = this.state.sortBy.findIndex(
-                                    ([k, _]) => k === key
-                                );
-                                sortableState = {
-                                    setSortBy: this.generateSetSortBy(key),
-                                    sorted:
-                                        index === -1
-                                            ? null
-                                            : {
-                                                  reversed: this.state.sortBy[index][1],
-                                                  index,
-                                              },
-                                };
-                            }
-
-                            return { ...sortableState };
-                        },
-                    }}
-                >
+                <TableContext.Provider value={context}>
                     {[
                         head,
                         React.cloneElement(body, {
@@ -212,22 +229,32 @@ export function Body(props: BodyProps) {
     return <tbody {...passThrough}>{children}</tbody>;
 }
 
-export type RowElement = React.ReactElement<RowProps, typeof Row>;
+export type RowElement = React.ReactElement<RowProps>;
 export type RowProps = {
     children: ArrayOrElem<CellElement>;
     indent?: number;
+    open?: boolean;
+    setOpen?: (open: boolean) => void;
 } & React.HTMLProps<HTMLTableRowElement>;
 export function Row(props: RowProps) {
-    const { children, indent, ...passThrough } = props;
+    const { children, indent, open, setOpen, ...passThrough } = props;
     if (indent !== undefined) {
         if (!("style" in passThrough)) passThrough.style = {};
         // @ts-ignore
         passThrough.style["--indent"] = indent;
     }
-    return <tr {...passThrough}>{children}</tr>;
+    if (open === undefined) return <tr {...passThrough}>{children}</tr>;
+    else
+        return (
+            <tr {...passThrough}>
+                {React.Children.map(children, (elem, idx) =>
+                    idx === 0 ? React.cloneElement(elem, { open, setOpen }) : elem
+                )}
+            </tr>
+        );
 }
 
-export type CellElement = React.ReactElement<CellProps, typeof Cell>;
+export type CellElement = React.ReactElement<CellProps>;
 export type CellProps = {
     /** Value the column's sort function operates on */
     sortKey?: any;
@@ -240,12 +267,24 @@ export type CellProps = {
      * (Think of it as a foreign key in a database)
      */
     parentKey?: React.Key | undefined;
+
+    open?: boolean;
+    setOpen?: (open: boolean) => void;
 } & React.HTMLProps<HTMLTableCellElement>;
 export function Cell(props: CellProps) {
-    const { children, sortKey, groupKey, parentKey, ...passThrough } = props;
+    const { children, sortKey, groupKey, parentKey, open, setOpen, ...passThrough } =
+        props;
     return (
         <td {...passThrough}>
-            <div>{children}</div>
+            <div>
+                {open === undefined ? null : (
+                    <Caret
+                        orientation={open ? "down" : "right"}
+                        onClick={() => setOpen && setOpen(!open)}
+                    />
+                )}
+                {children}
+            </div>
         </td>
     );
 }
