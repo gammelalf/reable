@@ -1,5 +1,4 @@
-import { Body, Cell, Row, Table } from "../table";
-import Column from "../table/column";
+import { Cell, Row, Table, Column } from "../table";
 import React from "react";
 import data from "./hierarchicalData.json";
 
@@ -14,13 +13,10 @@ export default function HierarchicalTable() {
                         if (table.current) {
                             table.current.setState({
                                 parentBy: checked ? "name" : null,
-                                parentOpen: Object.fromEntries(
-                                    data.map(({ name }) => [name, false])
-                                ),
                             });
                         }
                     }}
-                />{" "}
+                />
                 Tree view
             </label>
             <Table ref={table}>
@@ -30,7 +26,7 @@ export default function HierarchicalTable() {
                         <Column name="type">Type</Column>
                     </tr>
                 </thead>
-                <Body key="body">
+                <tbody key="body">
                     {data.map(({ name, isDir, parent }) => (
                         <Row key={name}>
                             <Cell
@@ -42,7 +38,7 @@ export default function HierarchicalTable() {
                             <Cell column="type">{isDir ? "Directory" : "File"}</Cell>
                         </Row>
                     ))}
-                </Body>
+                </tbody>
             </Table>
         </>
     );

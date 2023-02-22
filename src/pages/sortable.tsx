@@ -1,7 +1,6 @@
-import { Body, Cell, Row, Table } from "../table";
+import { Cell, Row, Table, Column } from "../table";
 import data from "./sortableData.json";
 import React from "react";
-import Column from "../table/column";
 
 export default function SortableTable() {
     return (
@@ -29,7 +28,7 @@ export default function SortableTable() {
                     </Column>
                 </tr>
             </thead>
-            <Body key="body">
+            <tbody key="body">
                 {data.map(({ id, name, fruit, done, timestamp, color }) => (
                     <Row key={id}>
                         <Cell column="name" sortKey={id}>
@@ -63,7 +62,7 @@ export default function SortableTable() {
                         </Cell>
                     </Row>
                 ))}
-            </Body>
+            </tbody>
         </Table>
     );
 }
