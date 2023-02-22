@@ -1,6 +1,5 @@
 import React from "react";
-import { ensureArray, compareNumbers } from "./utils";
-import { ArrayOrElem } from "./utils";
+import { ensureArray, compareNumbers, ContainsChildren } from "./utils";
 import TableContext, { Column } from "./context";
 import { RowContext, Row } from "./row";
 
@@ -9,16 +8,22 @@ const CELL_SYMBOL = Symbol();
 const CONTEXT_SYMBOL = Symbol();
 
 export type TableProps = {
-    children: [React.ReactElement, BodyElement];
+    children: [React.ReactElement, ContainsChildren<Row.Element>];
 };
 export type TableState = {
     sortBy: Array<[key: React.Key, rev: boolean]>;
     parentBy: React.Key | null;
     parentOpen: { [key: React.Key]: boolean };
+    groupBy: React.Key | null;
 };
 
 export class Table extends React.Component<TableProps, TableState> {
-    columns: { [key: React.Key]: { sortFn?: (a: any, b: any) => number } } = {};
+    columns: {
+        [key: React.Key]: {
+            sortFn?: (a: any, b: any) => number;
+            groupRow?: (groupKey: any) => React.ReactNode;
+        };
+    } = {};
 
     constructor(props: TableProps) {
         super(props);
@@ -27,44 +32,75 @@ export class Table extends React.Component<TableProps, TableState> {
             sortBy: [],
             parentBy: null,
             parentOpen: {},
+            groupBy: null,
         };
     }
 
-    generateSetSortBy = (key: React.Key) => {
-        return (
-            reverse?: boolean,
-            position?: "exclusive" | "first" | "last" | "current"
-        ) => {
-            const rev = reverse || false;
-            const pos = position || "exclusive";
+    getColumnState = (key: React.Key) => {
+        const column = this.columns[key];
+        if (column === undefined) return {};
 
-            switch (pos) {
-                case "exclusive":
-                    this.setState({ sortBy: [[key, rev]] });
-                    break;
-                case "first":
-                case "last":
-                    this.setState(({ sortBy }) => {
-                        sortBy = sortBy.filter(([k, _]) => key !== k);
-                        if (pos === "first") {
-                            sortBy = [[key, rev], ...sortBy];
-                        } else {
-                            sortBy = [...sortBy, [key, rev]];
-                        }
-                        return { sortBy };
-                    });
-                    break;
-                case "current":
-                    this.setState(({ sortBy }) => {
-                        const tuple = sortBy.find(([k, _]) => key === k);
-                        if (tuple) {
-                            tuple[1] = rev;
-                        }
-                        return { sortBy: [...sortBy] };
-                    });
-                    break;
-            }
-        };
+        let sortableState: Column.SortableState | undefined = undefined;
+        if ("sortFn" in column) {
+            const index = this.state.sortBy.findIndex(([k, _]) => k === key);
+            sortableState = {
+                setSortBy: (
+                    reverse?: boolean,
+                    position?: "exclusive" | "first" | "last" | "current"
+                ) => {
+                    const rev = reverse || false;
+                    const pos = position || "exclusive";
+
+                    switch (pos) {
+                        case "exclusive":
+                            this.setState({ sortBy: [[key, rev]] });
+                            break;
+                        case "first":
+                        case "last":
+                            this.setState(({ sortBy }) => {
+                                sortBy = sortBy.filter(([k, _]) => key !== k);
+                                if (pos === "first") {
+                                    sortBy = [[key, rev], ...sortBy];
+                                } else {
+                                    sortBy = [...sortBy, [key, rev]];
+                                }
+                                return { sortBy };
+                            });
+                            break;
+                        case "current":
+                            this.setState(({ sortBy }) => {
+                                const tuple = sortBy.find(([k, _]) => key === k);
+                                if (tuple) {
+                                    tuple[1] = rev;
+                                }
+                                return { sortBy: [...sortBy] };
+                            });
+                            break;
+                    }
+                },
+                sorted:
+                    index === -1
+                        ? null
+                        : {
+                              reversed: this.state.sortBy[index][1],
+                              index,
+                          },
+            };
+        }
+
+        let groupableState: Column.GroupableState | undefined = undefined;
+        if ("groupRow" in column) {
+            const grouped = this.state.groupBy === key;
+            groupableState = {
+                toggleGroupBy: () =>
+                    this.setState(({ groupBy }) => ({
+                        groupBy: groupBy === key ? null : key,
+                    })),
+                grouped,
+            };
+        }
+
+        return { ...sortableState, ...groupableState };
     };
 
     render() {
@@ -130,6 +166,11 @@ export class Table extends React.Component<TableProps, TableState> {
             });
         }
 
+        if (this.state.groupBy !== null && this.state.parentBy !== null)
+            console.error("Both tree views at the same time is not supported");
+
+        let bodyChildren: Array<React.ReactNode>;
+
         // Build a parent tree
         if (this.state.parentBy !== null) {
             const column = this.state.parentBy;
@@ -171,6 +212,37 @@ export class Table extends React.Component<TableProps, TableState> {
                     for (const child of row[CHILDREN_SYMBOL]) pushRow(child, indent + 1);
             };
             for (const row of topRows) pushRow(row, 0);
+
+            bodyChildren = rows.map((row) => (
+                <RowContext.Provider
+                    key={row[CELL_SYMBOL].key}
+                    value={row[CONTEXT_SYMBOL] || {}}
+                >
+                    {row[CELL_SYMBOL]}
+                </RowContext.Provider>
+            ));
+        } else if (
+            this.state.groupBy !== null &&
+            this.columns[this.state.groupBy].groupRow !== undefined
+        ) {
+            const column = this.state.groupBy;
+            const groups: Map<any, Array<DataRow>> = new Map();
+            for (const row of rows) {
+                let group = groups.get(row[column].groupKey);
+                if (group === undefined) {
+                    group = [];
+                    groups.set(row[column].groupKey, group);
+                }
+                group.push(row);
+            }
+
+            bodyChildren = [];
+            for (const [key, group] of groups) {
+                bodyChildren.push(this.columns[column].groupRow(key));
+                bodyChildren.push(...group.map((row) => row[CELL_SYMBOL]));
+            }
+        } else {
+            bodyChildren = rows.map((row) => row[CELL_SYMBOL]);
         }
 
         const contextCache: { [key: React.Key]: Column.State } = {};
@@ -180,61 +252,27 @@ export class Table extends React.Component<TableProps, TableState> {
                 if (properties.sortable) {
                     this.columns[key].sortFn = properties.sortFn || compareNumbers;
                 }
+                if (properties.groupable) {
+                    this.columns[key].groupRow = properties.groupRow;
+                }
                 delete contextCache[key];
             },
             getColumn: (key: React.Key) => {
-                if (key in contextCache) return contextCache[key];
-
-                const column = this.columns[key];
-                if (!column) return {};
-
-                let sortableState: Column.SortableState | undefined = undefined;
-                if ("sortFn" in column) {
-                    const index = this.state.sortBy.findIndex(([k, _]) => k === key);
-                    sortableState = {
-                        setSortBy: this.generateSetSortBy(key),
-                        sorted:
-                            index === -1
-                                ? null
-                                : {
-                                      reversed: this.state.sortBy[index][1],
-                                      index,
-                                  },
-                    };
-                }
-
-                const state = { ...sortableState };
-                contextCache[key] = state;
-                return state;
+                if (!(key in contextCache)) contextCache[key] = this.getColumnState(key);
+                return contextCache[key];
             },
+            rowIndent: this.state.groupBy === null ? 0 : 1,
         };
 
         return (
             <table {...passThrough}>
                 <TableContext.Provider value={context}>
-                    {[
-                        head,
-                        React.cloneElement(body, {
-                            children: rows.map((row) => (
-                                <RowContext.Provider
-                                    key={row[CELL_SYMBOL].key}
-                                    value={row[CONTEXT_SYMBOL] || {}}
-                                >
-                                    {row[CELL_SYMBOL]}
-                                </RowContext.Provider>
-                            )),
-                        }),
-                    ]}
+                    {[head, React.cloneElement(body, { children: bodyChildren })]}
                 </TableContext.Provider>
             </table>
         );
     }
 }
-
-export type BodyElement = React.ReactElement<BodyProps>;
-export type BodyProps = {
-    children: ArrayOrElem<Row.Element>;
-};
 
 export type CellElement = React.ReactElement<CellProps>;
 export type CellProps = {

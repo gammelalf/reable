@@ -11,11 +11,14 @@ body {
   flex-direction: column;
 }
 
-.caret {
+.icon {
   position: relative;
-  width: 1em;
-  height: 1em;
+  width: auto;
+  height: 2ch;
   filter: invert();
+}
+.icon.inactive {
+  filter: invert(0.4);
 }
 
 tr {

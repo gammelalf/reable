@@ -1,6 +1,6 @@
 import React from "react";
 import { Column, useColumn } from "./context";
-import Caret from "./caret";
+import { Caret, GroupBy } from "./icons";
 
 /**
  * The builtin default component for defining columns
@@ -13,21 +13,47 @@ export default function ColumnComponent(
     // Set the column's props and retrieve its state
     const column = useColumn(name, properties);
 
-    let caret: "up" | "down" | undefined;
-    let onClick: ((event: React.MouseEvent) => void) | undefined;
-
-    if ("sorted" in column) {
+    let caret: React.ReactNode = null;
+    if (props.sortable && "sorted" in column) {
         const { sorted, setSortBy } = column;
-        if (sorted) caret = sorted.reversed ? "up" : "down";
-        onClick = (event) => {
-            event.preventDefault();
-            setSortBy(!!sorted && !sorted.reversed, event.ctrlKey ? "last" : "exclusive");
-        };
+        caret = (
+            <Caret
+                className={!!sorted ? "icon" : "icon inactive"}
+                orientation={!sorted || !sorted.reversed ? "down" : "up"}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    setSortBy(
+                        !!sorted && !sorted.reversed,
+                        event.ctrlKey ? "last" : "exclusive"
+                    );
+                }}
+            />
+        );
     }
+
+    let groupBy: React.ReactNode = null;
+    if (properties.groupable && "grouped" in column) {
+        const { grouped, toggleGroupBy } = column;
+        groupBy = (
+            <GroupBy
+                className={grouped ? "icon" : "icon inactive"}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    toggleGroupBy();
+                }}
+            />
+        );
+    }
+
+    let onClick: React.EventHandler<React.MouseEvent> | undefined;
+    if (caret !== null && groupBy === null) onClick = caret.props.onClick;
+    else if (caret === null && groupBy !== null) onClick = groupBy.props.onClick;
 
     return (
         <th onClick={onClick}>
-            {children} {caret && <Caret orientation={caret} />}
+            {groupBy}
+            {children}
+            {caret}
         </th>
     );
 }
